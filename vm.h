@@ -2,11 +2,17 @@
 #define clox_vm_h
 
 #include "chunk.h"
+#include "value.h"
+
+#define STACK_MAX 256
 
 typedef struct {
   Chunk *chunk;
   uint8_t *ip; // Instruction pointer
   // We use a pointer instaead of an integer index bc its faster to dereference a pointer than look up an element in an array by index
+
+  Value stack[STACK_MAX]; // fixed size for now
+  Value *stackTop;        // stackTop points just past the element containing the top value, can tell if stack is empty if its pointing at element 0 in the array
 } VM;
 
 typedef enum {
@@ -19,5 +25,7 @@ void initVM();
 void freeVM();
 
 InterpretResult interpret(Chunk *chunk);
+void push(Value value);
+Value pop();
 
 #endif
