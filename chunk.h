@@ -14,11 +14,12 @@ typedef struct {
   int count;
   int capacity;
   uint8_t *code;
+  int *lines; // line number
   ValueArray constants;
 } Chunk; // Dynamic array of chunks
 
 void initChunk(Chunk *chunk); // Constructor
 void freeChunk(Chunk *chunk);
-void writeChunk(Chunk *chunk, uint8_t byte); // append a byte to end of chunk
-int addConstant(Chunk *chunk, Value value);  // add a new constant to the chunk
+void writeChunk(Chunk *chunk, uint8_t byte, int line); // append a byte to end of chunk
+int addConstant(Chunk *chunk, Value value);            // add a new constant to the chunk
 #endif
