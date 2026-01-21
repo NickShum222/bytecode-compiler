@@ -17,6 +17,7 @@ void freeChunk(Chunk *chunk) {
   initChunk(chunk); // Zero out the fields
 }
 
+// TODO: use run-length encoding to track the to keep track of line numbers
 void writeChunk(Chunk *chunk, uint8_t byte, int line) {
   if (chunk->capacity < chunk->count + 1) { // if at capacity, we need to grow the array
     int oldCapacity = chunk->capacity;
