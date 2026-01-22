@@ -4,7 +4,7 @@
 #include "chunk.h"
 #include "value.h"
 
-#define STACK_MAX 256
+#define STACK_MAX 256 // TODO: dynamically increase the size of the stack
 
 typedef struct {
   Chunk *chunk;
@@ -23,8 +23,7 @@ typedef enum {
 
 void initVM();
 void freeVM();
-
-InterpretResult interpret(Chunk *chunk);
+InterpretResult interpret(const char *source);
 void push(Value value);
 Value pop();
 
