@@ -2,4 +2,4 @@
 
 ## Features
 
-- Tokenizer, Compiler, Stack Based VM, Debugger
+- Tokenizer, Compiler (Pratt Parsing), Stack Based VM, Debugger

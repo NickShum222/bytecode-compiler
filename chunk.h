@@ -26,6 +26,14 @@ typedef struct {
 void initChunk(Chunk *chunk); // Constructor
 void freeChunk(Chunk *chunk);
 void writeChunk(Chunk *chunk, uint8_t byte, int line); // append a byte to end of chunk
-int addConstant(Chunk *chunk, Value value);            // add a new constant to the chunk
+
+/*
+ * @brief Adds a value into chunk through the value constant pool
+ *
+ * @param chunk pointer to chunk we add value to
+ * @param value actual value to be added
+ * @return index of where the constant is stored in the chunk
+ * */
+int addConstant(Chunk *chunk, Value value); // add a new constant to the chunk, returns
 // TODO: getLine(Chunk* chunk) -> returns the line number of the chunk
 #endif

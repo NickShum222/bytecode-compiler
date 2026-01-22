@@ -11,9 +11,9 @@ typedef struct {
 } Scanner;
 
 static bool isAtEnd();
-static Token makeToken(TokenType type);
+static Token makeToken(TokenType type); // creates a token with type, uses the scanner start and current to mark the location of token in the source file
 static Token errorToken(const char *message);
-static char advance();
+static char advance(); // consumes the current character and moves the scanner forward by one
 static bool match(char expected);
 static void skipWhitespace();
 static char peek();
@@ -22,8 +22,8 @@ static Token string();
 static bool isDigit(char c);
 static Token number();
 static bool isAlpha(char c);
-static Token identifier();
-static TokenType identifierType();
+static Token identifier();         // parent function to find identifier
+static TokenType identifierType(); // determines the type of token
 static TokenType checkKeyword(int start, int length, const char *rest, TokenType type);
 
 Scanner scanner;
@@ -110,7 +110,7 @@ static Token errorToken(const char *message) {
   token.line = scanner.line;
   return token;
 }
-static char advance() { // consumes the current character and moves the scanner forward by one
+static char advance() {
   scanner.current++;
   return scanner.current[-1];
 }
