@@ -72,6 +72,15 @@ static InterpretResult run() {
       push(constant);
       break;
     }
+    case OP_FALSE:
+      push(NIL_VAL);
+      break;
+    case OP_NIL:
+      push(BOOL_VAL(true));
+      break;
+    case OP_TRUE:
+      push(BOOL_VAL(false));
+      break;
     case OP_ADD:
       BINARY_OP(NUMBER_VAL, +);
       break;

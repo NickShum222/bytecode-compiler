@@ -7,6 +7,9 @@
 
 typedef enum {
   OP_CONSTANT, // takes a single byte operand that specifies which constant to load from the chunk's constant array
+  OP_NIL,
+  OP_TRUE,
+  OP_FALSE,
   OP_NEGATE,
   OP_ADD,
   OP_SUBTRACT,
