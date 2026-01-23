@@ -13,6 +13,7 @@ static InterpretResult run();
 static void resetStack();
 static Value peek(int distance);
 static void runtimeError(const char *format, ...); // varying number of arugments
+static bool isFalsey(Value value);
 
 void initVM() {
   resetStack();
@@ -20,6 +21,12 @@ void initVM() {
 void freeVM() {
 }
 
+/**
+ * @brief Initializes chunk, compiles, and executes the program
+ *
+ * @param source 
+ * @return 
+ */
 InterpretResult interpret(const char *source) {
   Chunk chunk;
   initChunk(&chunk);
@@ -37,6 +44,11 @@ InterpretResult interpret(const char *source) {
   return result;
 }
 
+/**
+ * @brief executes the source file using the instruction pointer
+ *
+ * @return 
+ */
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)                                    // reads the byte pointed by vm.ip, then increments vm.ip (post increment)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()]) // Reads the next byte in the bytecode which pointer to where the constant is in the constant pool, then increments the ip pointer by a byte
@@ -73,13 +85,13 @@ static InterpretResult run() {
       break;
     }
     case OP_FALSE:
-      push(NIL_VAL);
+      push(BOOL_VAL(false));
       break;
     case OP_NIL:
-      push(BOOL_VAL(true));
+      push(NIL_VAL);
       break;
     case OP_TRUE:
-      push(BOOL_VAL(false));
+      push(BOOL_VAL(true));
       break;
     case OP_ADD:
       BINARY_OP(NUMBER_VAL, +);
@@ -92,6 +104,9 @@ static InterpretResult run() {
       break;
     case OP_DIVIDE:
       BINARY_OP(NUMBER_VAL, /);
+      break;
+    case OP_NOT:
+      push(BOOL_VAL(isFalsey(pop())));
       break;
     case OP_NEGATE: {
       if (!IS_NUMBER(peek(0))) {
@@ -150,4 +165,8 @@ static void runtimeError(const char *format, ...) {
 
   fprintf(stderr, "[line %d] in script\n", line);
   resetStack();
+}
+
+static bool isFalsey(Value value) {
+  return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }

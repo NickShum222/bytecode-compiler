@@ -36,6 +36,8 @@ int disassembleInstruction(Chunk *chunk, int offset) {
     return simpleInstruction("OP_DIVIDE", offset);
   case OP_NEGATE:
     return simpleInstruction("OP_NEGATE", offset);
+  case OP_NOT:
+    return simpleInstruction("OP_NOT", offset);
   case OP_CONSTANT:
     return constantInstruction("OP_CONSTANT", chunk, offset);
   case OP_NIL:

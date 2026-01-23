@@ -240,7 +240,7 @@ static TokenType identifierType() {
       case 'h':
         return checkKeyword(2, 2, "is", TOKEN_THIS);
       case 'r':
-        return checkKeyword(2, 2, "us", TOKEN_TRUE);
+        return checkKeyword(2, 2, "ue", TOKEN_TRUE);
       }
     }
     break;

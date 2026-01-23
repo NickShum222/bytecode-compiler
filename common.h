@@ -6,6 +6,6 @@
 #include <stdint.h>
 
 // #define DEBUG_PRINT_CODE // use our debug module to print out the chunk's bytecode
-// #define DEBUG_TRACE_EXECUTION
+#define DEBUG_TRACE_EXECUTION
 
 #endif
