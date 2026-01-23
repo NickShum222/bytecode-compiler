@@ -1,4 +1,4 @@
-/* 
+/*
  *
  * */
 #include <stdio.h>
@@ -219,7 +219,7 @@ static void expression() {
 
 static void number() {
   double value = strtod(parser.previous.start, NULL); // assume the number literal has already been consumed and is stored in previous
-  emitConstant(value);
+  emitConstant(NUMBER_VAL(value));
 }
 static void emitConstant(Value value) {
   emitBytes(OP_CONSTANT, makeConstant(value));

@@ -1,13 +1,18 @@
-#include "vm.h"
+#include <stdarg.h>
+#include <stdio.h>
+
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
-#include <stdio.h>
+#include "value.h"
+#include "vm.h"
 
 VM vm;
 
 static InterpretResult run();
 static void resetStack();
+static Value peek(int distance);
+static void runtimeError(const char *format, ...); // varying number of arugments
 
 void initVM() {
   resetStack();
@@ -38,11 +43,15 @@ static InterpretResult run() {
 
   // define a macro to avoid repeating code 4 times
   // The do .. while(false) gives a way to contain multiple statements inside a block that also permits a semicolon at the end
-#define BINARY_OP(op) \
-  do {                \
-    double b = pop(); \
-    double a = pop(); \
-    push(a op b);     \
+#define BINARY_OP(valueType, op)                      \
+  do {                                                \
+    if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
+      runtimeError("Operands must be numbers.");      \
+      return INTERPRET_RUNTIME_ERROR;                 \
+    }                                                 \
+    double b = AS_NUMBER(pop());                      \
+    double a = AS_NUMBER(pop());                      \
+    push(valueType(a op b));                          \
   } while (false)
 
   for (;;) { // while (true) read and execute a single bytecode instruction
@@ -64,19 +73,23 @@ static InterpretResult run() {
       break;
     }
     case OP_ADD:
-      BINARY_OP(+);
+      BINARY_OP(NUMBER_VAL, +);
       break;
     case OP_SUBTRACT:
-      BINARY_OP(-);
+      BINARY_OP(NUMBER_VAL, -);
       break;
     case OP_MULTIPLY:
-      BINARY_OP(*);
+      BINARY_OP(NUMBER_VAL, *);
       break;
     case OP_DIVIDE:
-      BINARY_OP(/);
+      BINARY_OP(NUMBER_VAL, /);
       break;
     case OP_NEGATE: {
-      push(-pop());
+      if (!IS_NUMBER(peek(0))) {
+        runtimeError("Operand must be a number.");
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      push(NUMBER_VAL(-AS_NUMBER(pop())));
       break;
     }
     case OP_RETURN: {
@@ -104,4 +117,28 @@ void push(Value value) {
 Value pop() {
   vm.stackTop--;
   return *vm.stackTop;
+}
+
+/**
+ * @brief Returns a value from stack but doesnt pop
+ *
+ * @param distance how far down from the top of the stack to look, 0 = top, 1 = 1 slot down
+ * @return 
+ */
+static Value peek(int distance) {
+  return vm.stackTop[-1 - distance];
+}
+
+static void runtimeError(const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  vfprintf(stderr, format, args); // like printf but takes in va_list
+  va_end(args);
+  fputs("\n", stderr);
+
+  size_t instruction = vm.ip - vm.chunk->code - 1;
+  int line = vm.chunk->lines[instruction];
+
+  fprintf(stderr, "[line %d] in script\n", line);
+  resetStack();
 }
