@@ -12,6 +12,9 @@
 static Obj *allocateObject(size_t size, ObjType type) {
   Obj *object = (Obj *)reallocate(NULL, 0, size);
   object->type = type;
+
+  object->next = vm.objects;
+  vm.objects = object; // set the head of the pointer to the newly allocated object
   return object;
 }
 

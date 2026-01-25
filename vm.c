@@ -22,8 +22,10 @@ ObjString *takeString(char *chars, int length);
 
 void initVM() {
   resetStack();
+  vm.objects = NULL;
 }
 void freeVM() {
+  freeObjects();
 }
 
 /**
@@ -210,7 +212,6 @@ static void concatenate() {
   memcpy(chars, a->chars, a->length);
   memcpy(chars + a->length, b->chars, b->length);
   chars[length] = '\0';
-
   ObjString *result = takeString(chars, length);
   push(OBJ_VAL(result));
 }

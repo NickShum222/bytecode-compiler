@@ -13,6 +13,7 @@ typedef struct {
 
   Value stack[STACK_MAX]; // fixed size for now
   Value *stackTop;        // stackTop points just past the element containing the top value, can tell if stack is empty if its pointing at element 0 in the array
+  Obj *objects;           // poitner to the head of the list
 } VM;
 
 typedef enum {
@@ -26,5 +27,7 @@ void freeVM();
 InterpretResult interpret(const char *source);
 void push(Value value);
 Value pop();
+
+extern VM vm; // expose the vm object
 
 #endif
