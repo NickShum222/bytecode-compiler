@@ -24,6 +24,7 @@ struct ObjString {
   Obj obj;
   int length;
   char *chars;
+  uint32_t hash; // hash code for its string
 };
 
 ObjString *copyString(const char *chars, int length);
@@ -34,5 +35,7 @@ static inline bool isObjType(Value value, ObjType type) { // inline tells the co
 
 void printObject(Value value);
 
-ObjString *allocateString(char *chars, int length);
+ObjString *allocateString(char *chars, int length, uint32_t hash);
+uint32_t hashString(const char *key, int length);
+
 #endif

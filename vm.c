@@ -217,5 +217,6 @@ static void concatenate() {
 }
 
 ObjString *takeString(char *chars, int length) {
-  return allocateString(chars, length);
+  uint32_t hash = hashString(chars, length);
+  return allocateString(chars, length, hash);
 }
