@@ -18,13 +18,14 @@ static Value peek(int distance);
 static void runtimeError(const char *format, ...); // varying number of arugments
 static bool isFalsey(Value value);
 static void concatenate();
-ObjString *takeString(char *chars, int length);
 
 void initVM() {
   resetStack();
   vm.objects = NULL;
+  initTable(&vm.strings);
 }
 void freeVM() {
+  freeTable(&vm.strings);
   freeObjects();
 }
 
@@ -214,9 +215,4 @@ static void concatenate() {
   chars[length] = '\0';
   ObjString *result = takeString(chars, length);
   push(OBJ_VAL(result));
-}
-
-ObjString *takeString(char *chars, int length) {
-  uint32_t hash = hashString(chars, length);
-  return allocateString(chars, length, hash);
 }

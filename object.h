@@ -38,4 +38,6 @@ void printObject(Value value);
 ObjString *allocateString(char *chars, int length, uint32_t hash);
 uint32_t hashString(const char *key, int length);
 
+ObjString *takeString(char *chars, int length);
+
 #endif
