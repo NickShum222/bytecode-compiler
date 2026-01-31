@@ -16,6 +16,7 @@ typedef struct {
   Value *stackTop;        // stackTop points just past the element containing the top value, can tell if stack is empty if its pointing at element 0 in the array
   Obj *objects;           // poitner to the head of the list
 
+  Table globals; // hash table to store global variable
   Table strings;
 } VM;
 

@@ -22,10 +22,12 @@ static void concatenate();
 void initVM() {
   resetStack();
   vm.objects = NULL;
+  initTable(&vm.globals);
   initTable(&vm.strings);
 }
 void freeVM() {
   freeTable(&vm.strings);
+  freeTable(&vm.globals);
   freeObjects();
 }
 
@@ -60,6 +62,7 @@ InterpretResult interpret(const char *source) {
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)                                    // reads the byte pointed by vm.ip, then increments vm.ip (post increment)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()]) // Reads the next byte in the bytecode which pointer to where the constant is in the constant pool, then increments the ip pointer by a byte
+#define READ_STRING() AS_STRING(READ_CONSTANT());
 
   // define a macro to avoid repeating code 4 times
   // The do .. while(false) gives a way to contain multiple statements inside a block that also permits a semicolon at the end
@@ -105,6 +108,12 @@ static InterpretResult run() {
       Value b = pop();
       Value a = pop();
       push(BOOL_VAL(valuesEqual(a, b)));
+      break;
+    }
+    case OP_DEFINE_GLOBAL: {
+      ObjString *name = READ_STRING();
+      tableSet(&vm.globals, name, peek(0));
+      pop();
       break;
     }
 
@@ -153,6 +162,9 @@ static InterpretResult run() {
       printf("\n");
       break;
     }
+    case OP_POP:
+      pop();
+      break;
     case OP_RETURN: {
       // exit the interpreter
       return INTERPRET_OK; // exit the loop
@@ -162,6 +174,7 @@ static InterpretResult run() {
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_STRING
 #undef BINARY_OP
 }
 
