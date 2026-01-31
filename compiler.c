@@ -83,6 +83,9 @@ static void varDeclaration();
 static void defineVariable(uint8_t global);
 static uint8_t parseVariable(const char *errorMessage);
 static uint8_t identifierConstant(Token *name);
+static void variable();
+static void namedVariable(Token name);
+static void expressionStatement();
 
 ParseRule rules[] = {
     // Maps each Token type to its prefix, infix and precedence level
@@ -105,7 +108,7 @@ ParseRule rules[] = {
     [TOKEN_GREATER_EQUAL] = {NULL, binary, PREC_COMPARISON},
     [TOKEN_LESS] = {NULL, binary, PREC_COMPARISON},
     [TOKEN_LESS_EQUAL] = {NULL, binary, PREC_COMPARISON},
-    [TOKEN_IDENTIFIER] = {NULL, NULL, PREC_NONE},
+    [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
     [TOKEN_STRING] = {string, NULL, PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
     [TOKEN_AND] = {NULL, NULL, PREC_NONE},
@@ -178,7 +181,7 @@ static void errorAt(Token *token, const char *message) {
   fprintf(stderr, "[line %d] Error", token->line);
 
   if (token->type == TOKEN_EOF) {
-    fprintf(stderr, " at end");
+    fprintf(stderr, " at end\n");
   } else if (token->type == TOKEN_ERROR) {
     // Nothing
   } else {
@@ -453,7 +456,7 @@ static void printStatement() {
   emitByte(OP_PRINT);
 }
 
-static void expresssionStatement() {
+static void expressionStatement() {
   expression();
   consume(TOKEN_SEMICOLON, "Expect ';' after value.");
   emitByte(OP_POP);
@@ -488,4 +491,13 @@ static uint8_t parseVariable(const char *errorMessage) {
  */
 static uint8_t identifierConstant(Token *name) {
   return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+}
+
+static void variable() {
+  namedVariable(parser.previous);
+}
+
+static void namedVariable(Token name) {
+  uint8_t arg = identifierConstant(&name);
+  emitBytes(OP_GET_GLOBAL, arg);
 }
