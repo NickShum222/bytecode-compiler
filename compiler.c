@@ -33,7 +33,7 @@ typedef enum { // Precedence levels in order from lowest to highest
   PREC_PRIMARY
 } Precedence;
 
-typedef void (*ParseFn)(); // ParseFn is a type for a pointer to a function that takes not arguments and returns void
+typedef void (*ParseFn)(bool canAssign); // ParseFn is a type for a pointer to a function that takes not arguments and returns void
 /* Ex. void (*f)()
  *
  * f = hello;
@@ -63,16 +63,16 @@ static void emitBytes(uint8_t byte1, uint8_t byte2);
 static Chunk *currentChunk();
 static void endCompiler();
 static void emitReturn();
-static void number();
+static void number(bool canAssign);
 static void emitConstant(Value value);
 static uint8_t makeConstant(Value value); // add the value to the constant table, then emit OP_CONSTANT instr
-static void grouping();
-static void unary();
+static void grouping(bool canAssign);
+static void unary(bool canAssign);
 static void parsePrecedence(Precedence precedence);
-static void binary();
+static void binary(bool canAssign);
 static ParseRule *getRule(TokenType type);
-static void literal();
-static void string();
+static void literal(bool canAssign);
+static void string(bool canAssign);
 static void declaration();
 static void statement();
 static bool match(TokenType type);
@@ -83,8 +83,8 @@ static void varDeclaration();
 static void defineVariable(uint8_t global);
 static uint8_t parseVariable(const char *errorMessage);
 static uint8_t identifierConstant(Token *name);
-static void variable();
-static void namedVariable(Token name);
+static void variable(bool canAssign);
+static void namedVariable(Token name, bool canAssign);
 static void expressionStatement();
 
 ParseRule rules[] = {
@@ -234,7 +234,7 @@ static void expression() {
   parsePrecedence(PREC_ASSIGNMENT); // Lowest precedence so it can parse any expression
 }
 
-static void number() {
+static void number(bool canAssign) {
   double value = strtod(parser.previous.start, NULL); // assume the number literal has already been consumed and is stored in previous
   emitConstant(NUMBER_VAL(value));
 }
@@ -262,12 +262,12 @@ static uint8_t makeConstant(Value value) {
  * @brief parses the inner group inside the parentheses
  * @note assume the initial '(' has already been consumed
  */
-static void grouping() {
+static void grouping(bool canAssign) {
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void unary() {
+static void unary(bool canAssign) {
   TokenType operatorType = parser.previous.type;
 
   parsePrecedence(PREC_UNARY); // compile the operand (rhs), parse everything at precendence level UNARY or higher
@@ -311,16 +311,21 @@ static void parsePrecedence(Precedence precedence) {
     error("Expect expression.");
     return;
   }
-  prefixRule();
+  bool canAssign = precedence <= PREC_ASSIGNMENT; // since PREC_ASSIGNMENT is the lowest-precedence expr, the only time we allow an assisngment is when parsing an assignment expression or top-level expression like in an expression statement
+  prefixRule(canAssign);
 
   while (precedence <= getRule(parser.current.type)->precedence) {
     advance();
     ParseFn infixRule = getRule(parser.previous.type)->infix;
-    infixRule();
+    infixRule(canAssign);
+  }
+
+  if (canAssign && match(TOKEN_EQUAL)) {
+    error("Invalid assignment target.");
   }
 }
 
-static void binary() {
+static void binary(bool canAssign) {
   TokenType operatorType = parser.previous.type;
   ParseRule *rule = getRule(operatorType);
   parsePrecedence((Precedence)(rule->precedence + 1));
@@ -369,7 +374,7 @@ static void binary() {
 static ParseRule *getRule(TokenType type) {
   return &rules[type];
 }
-static void literal() {
+static void literal(bool canAssign) {
   switch (parser.previous.type) {
   case TOKEN_FALSE:
     emitByte(OP_FALSE);
@@ -385,7 +390,7 @@ static void literal() {
   }
 }
 
-static void string() {
+static void string(bool canAssign) {
   emitConstant(OBJ_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
 }
 
@@ -493,11 +498,16 @@ static uint8_t identifierConstant(Token *name) {
   return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
 }
 
-static void variable() {
-  namedVariable(parser.previous);
+static void variable(bool canAssign) {
+  namedVariable(parser.previous, canAssign);
 }
 
-static void namedVariable(Token name) {
+static void namedVariable(Token name, bool canAssign) {
   uint8_t arg = identifierConstant(&name);
-  emitBytes(OP_GET_GLOBAL, arg);
+  if (canAssign && match(TOKEN_EQUAL)) { // if we see an EQUAL token, we compile it as an assignment or setter instead of a variable access or getter
+    expression();
+    emitBytes(OP_SET_GLOBAL, arg);
+  } else {
+    emitBytes(OP_GET_GLOBAL, arg);
+  }
 }
