@@ -3,7 +3,6 @@
 
 #include "common.h"
 #include "object.h"
-#include "vm.h"
 
 #define GROW_CAPACITY(capacity) \
   ((capacity) < 8 ? 8 : (capacity) * 2)
