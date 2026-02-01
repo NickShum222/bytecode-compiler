@@ -3,6 +3,7 @@
  * */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -49,7 +50,19 @@ typedef struct {
   Precedence precedence;
 } ParseRule;
 
+typedef struct {
+  Token name;
+  int depth;
+} Local;
+
+typedef struct {
+  Local locals[UINT8_COUNT]; // array of locals that are in scope during each point in the compilation process
+  int localCount;            // tracks how many locals are in scope
+  int scopeDepth;            // number of blocks surrount the current bit of code we're compiling
+} Compiler;
+
 Parser parser;
+Compiler *current = NULL;
 Chunk *compilingChunk;
 
 static void advance(); // steps forward through the token stream, stores the previouss and current token
@@ -86,6 +99,14 @@ static uint8_t identifierConstant(Token *name);
 static void variable(bool canAssign);
 static void namedVariable(Token name, bool canAssign);
 static void expressionStatement();
+
+static void initCompiler(Compiler *compiler);
+static void block();
+static void beginScope();
+static void endScope();
+static void declareVariable();
+static void addLocal(Token name);
+static bool identifiersEqual(Token *a, Token *b);
 
 ParseRule rules[] = {
     // Maps each Token type to its prefix, infix and precedence level
@@ -139,6 +160,10 @@ ParseRule rules[] = {
  */
 bool compile(const char *source, Chunk *chunk) {
   initScanner(source);
+
+  Compiler compiler;
+  initCompiler(&compiler);
+
   compilingChunk = chunk;
 
   parser.hadError = false;
@@ -204,6 +229,11 @@ static void consume(TokenType type, const char *message) {
   errorAtCurrent(message);
 }
 
+/**
+ * @brief writes a chunk to the array
+ *
+ * @param byte 
+ */
 static void emitByte(uint8_t byte) {
   writeChunk(currentChunk(), byte, parser.previous.line);
 }
@@ -241,6 +271,13 @@ static void number(bool canAssign) {
 static void emitConstant(Value value) {
   emitBytes(OP_CONSTANT, makeConstant(value));
 }
+
+static void initCompiler(Compiler *compiler) {
+  compiler->localCount = 0;
+  compiler->scopeDepth = 0;
+  current = compiler;
+}
+
 /**
  * @brief inserts the value to value constant pool, ensures we dont have too many constants
  *
@@ -394,6 +431,9 @@ static void string(bool canAssign) {
   emitConstant(OBJ_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
 }
 
+/**
+ * @brief declaration has the grammar: declaration -> classDecl | funDecl | varDecl | statement
+ */
 static void declaration() {
   if (match(TOKEN_VAR)) {
     varDeclaration();
@@ -429,14 +469,40 @@ static void synchronize() {
   }
 }
 
+/**
+ * @brief statement -> exprStmt | printStmt | block
+ */
 static void statement() {
   if (match(TOKEN_PRINT)) {
     printStatement();
+  } else if (match(TOKEN_LEFT_BRACE)) {
+    beginScope();
+    block();
+    endScope();
   } else {
     expressionStatement();
   }
 }
 
+static void block() {
+  while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+    declaration();
+  }
+  consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
+}
+
+static void beginScope() {
+  current->scopeDepth++;
+}
+
+static void endScope() {
+  current->scopeDepth--;
+
+  while (current->localCount > 0 && current->locals[current->localCount - 1].depth > current->scopeDepth) { // end the current scope
+    emitByte(OP_POP);
+    current->localCount--;
+  }
+}
 /**
  * @brief if the current token has the given type, consume it and return true
  *
@@ -480,12 +546,73 @@ static void varDeclaration() {
   defineVariable(global);
 }
 
+/**
+ * @brief outputs the bytecode instruction that defines the new variable and stores its initial value
+ *
+ * @param global 
+ */
 static void defineVariable(uint8_t global) {
+  if (current->scopeDepth > 0) {
+    return;
+  }
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
+/**
+ * @brief 
+ *
+ * @param errorMessage 
+ * @return idx of the variable constant in the constant pool
+ */
 static uint8_t parseVariable(const char *errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
+
+  declareVariable();
+  if (current->scopeDepth > 0) // exit the function if we're in a local scope
+    return 0;
   return identifierConstant(&parser.previous);
+}
+
+/**
+ * @brief records the existence of the variable, only do this for locals, adds to teh compiler's list of variables in the current scope
+ */
+static void declareVariable() {
+  if (current->scopeDepth == 0)
+    return;
+
+  Token *name = &parser.previous;
+  for (int i = current->localCount - 1; i >= 0; i--) { // we disallow two variables with the same name in the same local scope
+    Local *local = &current->locals[i];
+    if (local->depth != -1 && local->depth < current->scopeDepth) {
+      break;
+    }
+
+    if (identifiersEqual(name, &local->name)) {
+      error("Already a variable with this name in this scope.");
+    }
+  }
+
+  addLocal(*name);
+}
+
+static bool identifiersEqual(Token *a, Token *b) {
+  if (a->length != b->length)
+    return false;
+
+  return memcmp(a->start, b->start, a->length) == 0;
+}
+/**
+ * @brief initializes the next available local in teh compiler's array of variables
+ *
+ * @param name 
+ */
+static void addLocal(Token name) {
+  if (current->localCount == UINT8_COUNT) {
+    error("Too many local variables in function.");
+    return;
+  }
+  Local *local = &current->locals[current->localCount++];
+  local->name = name;
+  local->depth = current->scopeDepth;
 }
 
 /**
@@ -502,6 +629,12 @@ static void variable(bool canAssign) {
   namedVariable(parser.previous, canAssign);
 }
 
+/**
+ * @brief lets the VM know where the variable exists in the constant table
+ *
+ * @param name 
+ * @param canAssign 
+ */
 static void namedVariable(Token name, bool canAssign) {
   uint8_t arg = identifierConstant(&name);
   if (canAssign && match(TOKEN_EQUAL)) { // if we see an EQUAL token, we compile it as an assignment or setter instead of a variable access or getter
