@@ -107,6 +107,8 @@ static void endScope();
 static void declareVariable();
 static void addLocal(Token name);
 static bool identifiersEqual(Token *a, Token *b);
+static int resolveLocal(Compiler *compiler, Token *name);
+static void markInitialized();
 
 ParseRule rules[] = {
     // Maps each Token type to its prefix, infix and precedence level
@@ -553,10 +555,19 @@ static void varDeclaration() {
  */
 static void defineVariable(uint8_t global) {
   if (current->scopeDepth > 0) {
+    markInitialized(); // once the variable's initializer has been compiler, mark it initialized
     return;
   }
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
+
+/**
+ * @brief 
+ */
+static void markInitialized() {
+  current->locals[current->localCount - 1].depth = current->scopeDepth;
+}
+
 /**
  * @brief 
  *
@@ -612,7 +623,7 @@ static void addLocal(Token name) {
   }
   Local *local = &current->locals[current->localCount++];
   local->name = name;
-  local->depth = current->scopeDepth;
+  local->depth = -1; // -1 = "uninitialized state"
 }
 
 /**
@@ -636,11 +647,42 @@ static void variable(bool canAssign) {
  * @param canAssign 
  */
 static void namedVariable(Token name, bool canAssign) {
-  uint8_t arg = identifierConstant(&name);
+  uint8_t getOp, setOp;
+  int arg = resolveLocal(current, &name);
+
+  if (arg != -1) {
+    getOp = OP_GET_LOCAL;
+    setOp = OP_SET_LOCAL;
+  } else {
+    arg = identifierConstant(&name);
+    getOp = OP_GET_GLOBAL;
+    setOp = OP_SET_GLOBAL;
+  }
+
   if (canAssign && match(TOKEN_EQUAL)) { // if we see an EQUAL token, we compile it as an assignment or setter instead of a variable access or getter
     expression();
-    emitBytes(OP_SET_GLOBAL, arg);
+    emitBytes(setOp, (uint8_t)arg);
   } else {
-    emitBytes(OP_GET_GLOBAL, arg);
+    emitBytes(getOp, (uint8_t)arg);
   }
+}
+
+/**
+ * @brief find the location of the identifer we are looking for that is most in scope
+ *
+ * @param compiler 
+ * @param name 
+ * @return -1 to signal that we havent found it and assume its a global variable
+ */
+static int resolveLocal(Compiler *compiler, Token *name) {
+  for (int i = compiler->localCount - 1; i >= 0; i--) { // walk backwards so we find the last declared variable. this ensures inner vars shadow locals with the same name
+    Local *local = &compiler->locals[i];
+    if (identifiersEqual(name, &local->name)) {
+      if (local->depth == -1) {
+        error("Can't read local variable in its own initializer");
+      }
+      return i;
+    }
+  }
+  return -1;
 }

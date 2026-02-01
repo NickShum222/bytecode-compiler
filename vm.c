@@ -136,6 +136,16 @@ static InterpretResult run() {
       }
       break;
     }
+    case OP_GET_LOCAL: { // loads teh value from the index and pushes it on top of the stack where later instructions can find it
+      uint8_t slot = READ_BYTE();
+      push(vm.stack[slot]);
+      break;
+    }
+    case OP_SET_LOCAL: { // takes the assigned value from the top of the stack and stores it in the stack slot corresponding to the local variable
+      uint8_t slot = READ_BYTE();
+      vm.stack[slot] = peek(0);
+      break;
+    }
 
     case OP_GREATER:
       BINARY_OP(BOOL_VAL, >);

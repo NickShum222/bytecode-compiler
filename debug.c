@@ -3,8 +3,33 @@
 #include "debug.h"
 #include "value.h"
 
+/**
+ * @brief Debug instructions that have no operands, & are 1 byte long
+ *
+ * @param name 
+ * @param offset index in the bytecode array, tells where the current instr starts
+ * @return 
+ */
 static int simpleInstruction(const char *name, int offset);
+/**
+ * @brief Debug instructions that are 2 bytes long
+ *
+ * @param name 
+ * @param chunk 
+ * @param offset 
+ * @return 
+ */
 static int constantInstruction(const char *name, Chunk *chunk, int offset);
+/**
+ * @brief shows the slot number, used for local variables
+ *
+ * @param name 
+ * @param chunk 
+ * @param offset 
+ * @return 
+ */
+static int byteInstruction(const char *name, Chunk *chunk, int offset);
+
 void disassembleChunk(Chunk *chunk, const char *name) {
   printf("== %s ==\n", name);
 
@@ -35,6 +60,10 @@ int disassembleInstruction(Chunk *chunk, int offset) {
     return constantInstruction("OP_GET_GLOBAL", chunk, offset);
   case OP_SET_GLOBAL:
     return constantInstruction("OP_SET_GLOBAL", chunk, offset);
+  case OP_GET_LOCAL:
+    return byteInstruction("OP_GET_LOCAL", chunk, offset);
+  case OP_SET_LOCAL:
+    return byteInstruction("OP_SET_LOCAL", chunk, offset);
   case OP_ADD:
     return simpleInstruction("OP_ADD", offset);
   case OP_SUBTRACT:
@@ -80,5 +109,11 @@ static int constantInstruction(const char *name, Chunk *chunk, int offset) {
   printValue(chunk->constants.values[constant]);
   printf("'\n");
 
+  return offset + 2;
+}
+
+static int byteInstruction(const char *name, Chunk *chunk, int offset) {
+  uint8_t slot = chunk->code[offset + 1];
+  printf("%-16s %4d\n", name, slot);
   return offset + 2;
 }
