@@ -110,6 +110,10 @@ static bool identifiersEqual(Token *a, Token *b);
 static int resolveLocal(Compiler *compiler, Token *name);
 static void markInitialized();
 
+static void ifStatement();
+static int emitJump(uint8_t instruction);
+static void patchJump(int offset);
+
 ParseRule rules[] = {
     // Maps each Token type to its prefix, infix and precedence level
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
@@ -477,6 +481,8 @@ static void synchronize() {
 static void statement() {
   if (match(TOKEN_PRINT)) {
     printStatement();
+  } else if (match(TOKEN_IF)) {
+    ifStatement();
   } else if (match(TOKEN_LEFT_BRACE)) {
     beginScope();
     block();
@@ -679,10 +685,55 @@ static int resolveLocal(Compiler *compiler, Token *name) {
     Local *local = &compiler->locals[i];
     if (identifiersEqual(name, &local->name)) {
       if (local->depth == -1) {
-        error("Can't read local variable in its own initializer");
+        error("Can't read local variable in its own initializer. ");
       }
       return i;
     }
   }
   return -1;
+}
+
+static void ifStatement() {
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'. ");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition. ");
+
+  int thenJump = emitJump(OP_JUMP_IF_FALSE);
+  statement();
+
+  patchJump(thenJump);
+}
+
+/* BACKPATCHING: 
+ * First emit the jump instruction with a placeholder offset as we dont know how many bytes for the ip to jump to
+ * Once we compile the body of the condition statement, we replace the placeholder offset with the actual offset
+ * */
+
+/**
+ * @brief emit the jump with a placeholder value
+ *
+ * @param instruction 
+ * @return the offset of the emitted instruction in the chunk
+ */
+static int emitJump(uint8_t instruction) {
+  emitByte(instruction);
+  emitByte(0xff); // use two bytes for the jump offset
+  emitByte(0xff); // 16 bit offset means we can jump through 65536 bytes of code
+  return currentChunk()->count - 2;
+}
+
+/**
+ * @brief goes back into the bytecode and replaces the operand at the given location with the calculated jump offset
+ *
+ * @param offset the location of the OP_JUMP_IF_FALSE opcode
+ */
+static void patchJump(int offset) {
+  // -2 to adjust for the bytecode for the jump offset itself
+  int jump = currentChunk()->count - offset - 2; // current location after compiling the body - location of OP_JUMP_IF_FALSE - 2 = the size of the compiled body
+
+  if (jump > UINT16_MAX) {
+    error("Too much code to jump over.");
+  }
+  currentChunk()->code[offset] = (jump >> 8) & 0xff;
+  currentChunk()->code[offset + 1] = jump & 0xff;
 }
