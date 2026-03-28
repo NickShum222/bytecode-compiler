@@ -114,8 +114,13 @@ static void ifStatement();
 static int emitJump(uint8_t instruction);
 static void patchJump(int offset);
 
+static void and_(bool canAssign);
+static void or_(bool canAssign);
+
 ParseRule rules[] = {
     // Maps each Token type to its prefix, infix and precedence level
+    // prefix: can this token start an expression
+    // infix: can this token appear between two expressions
     [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
     [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_BRACE] = {NULL, NULL, PREC_NONE},
@@ -138,7 +143,7 @@ ParseRule rules[] = {
     [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
     [TOKEN_STRING] = {string, NULL, PREC_NONE},
     [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
-    [TOKEN_AND] = {NULL, NULL, PREC_NONE},
+    [TOKEN_AND] = {NULL, and_, PREC_AND},
     [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
     [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
     [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
@@ -146,7 +151,7 @@ ParseRule rules[] = {
     [TOKEN_FUN] = {NULL, NULL, PREC_NONE},
     [TOKEN_IF] = {NULL, NULL, PREC_NONE},
     [TOKEN_NIL] = {literal, NULL, PREC_NONE},
-    [TOKEN_OR] = {NULL, NULL, PREC_NONE},
+    [TOKEN_OR] = {NULL, or_, PREC_NONE},
     [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
     [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
     [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
@@ -216,7 +221,7 @@ static void errorAt(Token *token, const char *message) {
   } else if (token->type == TOKEN_ERROR) {
     // Nothing
   } else {
-    fprintf(stderr, " at '%s.*s'", token->length, token->start);
+    fprintf(stderr, " at '%.*s'", token->length, token->start);
     parser.hadError = true;
   }
 }
@@ -744,4 +749,30 @@ static void patchJump(int offset) {
   }
   currentChunk()->code[offset] = (jump >> 8) & 0xff;
   currentChunk()->code[offset + 1] = jump & 0xff;
+}
+
+/**
+ * @brief by the time and_ is called, the left hand side has already been compiled
+ *
+ * @param canAssign 
+ */
+static void and_(bool canAssign) {
+  int endJump = emitJump(OP_JUMP_IF_FALSE); // if left side is false, skip right side
+
+  emitByte(OP_POP);          // pop the left operand (it was truthy)
+  parsePrecedence(PREC_AND); // compile the right operand
+
+  patchJump(endJump); // backpatch the jump destination
+}
+
+static void or_(bool canAssign) {
+  int elseJump = emitJump(OP_JUMP_IF_FALSE); // if left is false, skip to right side
+  int endJump = emitJump(OP_JUMP);           // if left is truthy, skip over right side
+
+  patchJump(elseJump); // falsy lands here
+  emitByte(OP_POP);    // pop the left value
+
+  parsePrecedence(PREC_OR); // compile the right operand
+
+  patchJump(endJump); // truthy jump lands here
 }
